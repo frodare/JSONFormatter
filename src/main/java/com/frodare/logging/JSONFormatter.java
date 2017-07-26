@@ -9,7 +9,6 @@
  *
  * JSON formatter was done manually in this class to avoid requiring dependencies.
  */
-
 package com.frodare.logging;
 
 import java.util.logging.Formatter;
