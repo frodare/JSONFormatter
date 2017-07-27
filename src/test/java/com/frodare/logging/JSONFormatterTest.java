@@ -34,6 +34,61 @@ public class JSONFormatterTest {
   }
 
   @Test
+  public void formatWithFields() {
+    Deencapsulation.setField(formatter, "parseMessageFields", true);
+    LogRecord r = new LogRecord(Level.INFO, "howdy FOO[Bar] and Foo[BAZ]!");
+    r.setSourceMethodName("meth");
+    r.setSourceClassName("com.frodare.Test");
+    r.setMillis(1001);
+    r.setSequenceNumber(15);
+    String actual = Deencapsulation.invoke(formatter, "format", r);
+    String expectedFields = "{\"FOO\":\"Bar\",\"Foo\":\"BAZ\"}";
+    String expected =
+        "{\"level\":\"INFO\",\"message\":\"howdy FOO[Bar] and Foo[BAZ]!\",\"millis\":1001,\"seqNum\":15,\"source\":\"com.frodare.Test.meth()\",\"thrown\":null,\"fields\":"
+            + expectedFields + "}\n";
+    Assert.assertEquals(expected, actual);
+  }
+
+  @Test
+  public void parseFields() {
+    StringBuilder buf = new StringBuilder();
+    String message = "test test TEST[foo] bar[baz]test";
+    Deencapsulation.invoke(JSONFormatter.class, "parseFields", buf, message);
+    Assert.assertEquals("{\"TEST\":\"foo\",\"bar\":\"baz\"}", buf.toString());
+  }
+
+  @Test
+  public void parseFieldsNone() {
+    StringBuilder buf = new StringBuilder();
+    String message = "test test TESTfoo barbaztest";
+    Deencapsulation.invoke(JSONFormatter.class, "parseFields", buf, message);
+    Assert.assertEquals("null", buf.toString());
+  }
+
+  @Test
+  public void parseFieldsEmpty() {
+    StringBuilder buf = new StringBuilder();
+    String message = "";
+    Deencapsulation.invoke(JSONFormatter.class, "parseFields", buf, message);
+    Assert.assertEquals("null", buf.toString());
+  }
+
+  @Test
+  public void parseFieldsNull() {
+    StringBuilder buf = new StringBuilder();
+    String message = null;
+    Deencapsulation.invoke(JSONFormatter.class, "parseFields", new Class<?>[]{StringBuilder.class, String.class}, buf, message);
+    Assert.assertEquals("null", buf.toString());
+  }
+
+  @Test
+  public void writeMessageField() {
+    StringBuilder buf = new StringBuilder();
+    Deencapsulation.invoke(JSONFormatter.class, "writeMessageField", buf, "Foo", "Bar");
+    Assert.assertEquals("\"Foo\":\"Bar\"", buf.toString());
+  }
+
+  @Test
   public void writeStackTraceElement() {
     StackTraceElement e = new StackTraceElement("com.frodare.Foo", "meth", "Test.class", 420);
     writeStackTraceElement(e, "    at com.frodare.Foo.meth(Test.class:420)\n");

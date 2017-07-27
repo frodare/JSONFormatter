@@ -13,9 +13,14 @@ package com.frodare.logging;
 
 import java.util.logging.Formatter;
 import java.util.logging.Level;
+import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class JSONFormatter extends Formatter {
+
+  private static final Pattern p = Pattern.compile("([a-z0-9]+)\\[([^]]+)]", Pattern.CASE_INSENSITIVE);
 
   private static final int CONTROL_CHARACTERS_END = 0x001f;
 
@@ -37,8 +42,11 @@ public class JSONFormatter extends Formatter {
 
   private static final String NEW_LINE = System.getProperty("line.separator");
 
+  private Boolean parseMessageFields = null;
+
   @Override
   public String format(LogRecord record) {
+    determineParseMessageFields();
     StringBuilder buf = new StringBuilder();
     buf.append("{");
     writeStringEntry(buf, "level", s(record.getLevel()));
@@ -52,9 +60,60 @@ public class JSONFormatter extends Formatter {
     writeSource(buf, "source", record);
     buf.append(",");
     writeThrown(buf, "thrown", record);
+    if (parseMessageFields) {
+      buf.append(",");
+      writeMessageFields(buf, "fields", record.getMessage());
+    }
     buf.append("}");
     buf.append(NEW_LINE);
     return buf.toString();
+  }
+
+  private static void writeMessageFields(StringBuilder buf, String key, String message) {
+    writeQuotedString(buf, key);
+    buf.append(":");
+    parseFields(buf, message);
+  }
+
+  private static void parseFields(StringBuilder buf, String message) {
+    if (message == null) {
+      buf.append("null");
+      return;
+    }
+    Matcher m = p.matcher(message);
+    boolean first = true;
+    boolean found = false;
+    buf.append('{');
+    while (m.find()) {
+      if (m.groupCount() == 0) {
+        continue;
+      }
+      if (m.groupCount() == 2) {
+        found = true;
+        if (first) {
+          first = false;
+        } else {
+          buf.append(",");
+        }
+        writeMessageField(buf, m.group(1), m.group(2));
+      }
+    }
+    if (!found) {
+      buf.delete(buf.length() - 1, buf.length());
+      buf.append("null");
+    } else {
+      buf.append('}');
+    }
+  }
+
+  private static void writeMessageField(StringBuilder buf, String key, String value) {
+    buf.append("\"").append(key).append("\":\"").append(value).append("\"");
+  }
+
+  private void determineParseMessageFields() {
+    if (parseMessageFields == null) {
+      parseMessageFields = bool(LogManager.getLogManager().getProperty("com.frodare.logging.JSONFormatter.parseMessageFields"));
+    }
   }
 
   private void writeThrown(StringBuilder buf, String key, LogRecord record) {
@@ -202,6 +261,13 @@ public class JSONFormatter extends Formatter {
       return TAB_CHARS;
     }
     return new char[]{'\\', 'u', '0', '0', HEX_DIGITS[ch >> 4 & 0x000f], HEX_DIGITS[ch & 0x000f]};
+  }
+
+  private static boolean bool(String s) {
+    if (s == null) {
+      return false;
+    }
+    return s.trim().equalsIgnoreCase("true");
   }
 
 }
